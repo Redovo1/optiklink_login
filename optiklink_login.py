@@ -10,7 +10,7 @@ OptikLink 每日自动登录脚本 v3
 import os
 import re
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from urllib.parse import urlparse, parse_qs, urlencode
 
 # 优先使用 cloudscraper 绕过 Cloudflare 验证
@@ -156,13 +156,14 @@ def discover_oauth_params(session) -> dict:
                 f"| 旧值 | `{mask(DISCORD_CLIENT_ID, 6)}` |\n"
                 f"| 新值 | `{mask(new_cid, 6)}` |\n\n"
                 f"✅ **本次已自动切换为新值执行，Secret 也将自动更新，无需手动操作。**\n\n"
-                f"时间：{datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC",
+                f"时间：{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} UTC",
             )
         except Exception as pe:
             print(f"    client_id 预警推送失败: {pe}")
 
+    # 日志中脱敏打印最终参数（对 client_id 和 redirect_uri 都做脱敏）
     safe_params = {
-        k: (mask(v, 6) if k in ("client_id",) else v)
+        k: (mask(v, 6) if k in ("client_id", "redirect_uri") else v)
         for k, v in params.items()
     }
     print(f"    最终 OAuth 参数（已脱敏）: {safe_params}")
@@ -302,9 +303,9 @@ def check_dashboard(session) -> dict:
 # 推送消息（含分级到期提醒）
 # ─────────────────────────────────────────────────────────────
 def build_message(info: dict) -> tuple[str, str]:
-    today = datetime.utcnow()
+    now_utc = datetime.now(timezone.utc)
     expire_dt = datetime.strptime(info["expire_date"], "%d.%m.%Y")
-    days_left = (expire_dt - today).days
+    days_left = (expire_dt - now_utc).days
     status = "✅ 登录成功" if info["logged_in"] else "❌ 登录失败"
 
     if days_left <= 3:
@@ -334,7 +335,7 @@ def build_message(info: dict) -> tuple[str, str]:
 | 运行服务器 | {info['running_servers']} 个 |
 | 服务到期 | {info['expire_date']} |
 | 剩余天数 | {days_left} 天 |
-| 执行时间 | {today.strftime('%Y-%m-%d %H:%M:%S')} UTC |
+| 执行时间 | {now_utc.strftime('%Y-%m-%d %H:%M:%S')} UTC |
 {warning}
 """
     return title, content
@@ -351,7 +352,7 @@ def main():
     print(f"  WXPUSHER_TOKEN     : {mask(WXPUSHER_TOKEN)}")
     print(f"  WXPUSHER_UID       : {mask(WXPUSHER_UID)}")
     print(f"  DISCORD_CLIENT_ID  : {mask(DISCORD_CLIENT_ID, 6)}")
-    print(f"  DISCORD_REDIRECT_URI: {DISCORD_REDIRECT_URI}")
+    print(f"  DISCORD_REDIRECT_URI: {mask(DISCORD_REDIRECT_URI)}")
     print(f"  EXPIRE_DATE        : {EXPIRE_DATE}")
     print("=" * 55)
 
@@ -380,7 +381,7 @@ def main():
             wxpusher_send(
                 "OptikLink 签到 ❌ 失败",
                 f"## 执行失败\n\n**错误：**\n```\n{err_msg}\n```\n"
-                f"时间：{datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC",
+                f"时间：{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} UTC",
             )
         except Exception as pe:
             print(f"WxPusher 推送失败: {pe}")
