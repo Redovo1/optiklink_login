@@ -79,7 +79,7 @@ def wxpusher_send(title: str, content: str):
         timeout=15,
     )
     result = resp.json()
-    print(f"[WxPusher] 推送至 uid={mask(WXPUSHER_UID)} | "
+    print(f"  WXPUSHER_UID       : ***")
           f"{result.get('msg')} | success={result.get('success')}")
 
 
@@ -133,7 +133,7 @@ def discover_oauth_params(session) -> dict:
 
     if params.get("client_id") and params["client_id"] != DISCORD_CLIENT_ID:
         new_cid = params["client_id"]
-        print(f"    ⚠️  页面 client_id 已变更！配置值={mask(DISCORD_CLIENT_ID, 6)}  "
+    print(f"  DISCORD_CLIENT_ID  : ***")
               f"页面新值={mask(new_cid, 6)}")
         print(f"    ✅  已自动切换为新 client_id，本次直接使用新值继续执行")
 
@@ -148,7 +148,7 @@ def discover_oauth_params(session) -> dict:
                 "⚠️ OptikLink client_id 已变更（已自动处理）",
                 f"## client_id 已变更\n\n"
                 f"| | 值（已脱敏）|\n|---|---|\n"
-                f"| 旧值 | `{mask(DISCORD_CLIENT_ID, 6)}` |\n"
+    print(f"  DISCORD_CLIENT_ID  : ***")
                 f"| 新值 | `{mask(new_cid, 6)}` |\n\n"
                 f"✅ **本次已自动切换为新值执行，Secret 也将自动更新，无需手动操作。**\n\n"
                 f"时间：{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} UTC",
@@ -233,11 +233,13 @@ def optiklink_callback(session, callback_url: str):
     for i in range(max_redirects):
         resp = session.get(current_url, timeout=15,
                            headers=HEADERS_BROWSER, allow_redirects=False)
-        print(f"    跳转 #{i+1}: 状态码 {resp.status_code}, URL={resp.url[:80]}")
+        url_masked = re.sub(r'(code|token|access_token)=[^&\s]+', r'\1=***', resp.url)
+        print(f"    跳转 #{i+1}: 状态码 {resp.status_code}, URL={url_masked[:80]}")
         if resp.status_code in (301, 302, 303, 307, 308):
             location = resp.headers.get("Location")
             if not location:
-                raise RuntimeError(f"重定向无 Location 头: {resp.url}")
+                err_url = re.sub(r'(code|token|access_token)=[^&\s]+', r'\1=***', resp.url)
+                raise RuntimeError(f"重定向无 Location 头: {err_url}")
             if location.startswith("/"):
                 from urllib.parse import urljoin
                 location = urljoin(current_url, location)
@@ -248,7 +250,8 @@ def optiklink_callback(session, callback_url: str):
     else:
         raise RuntimeError("重定向次数超过限制")
 
-    print(f"    最终状态码: {final_resp.status_code}  最终URL: {final_resp.url[:100]}")
+    final_url_masked = re.sub(r'(code|token|access_token)=[^&\s]+', r'\1=***', final_resp.url)
+    print(f"    最终状态码: {final_resp.status_code}  最终URL: {final_url_masked[:100]}")
     if final_resp.status_code >= 400:
         body_preview = final_resp.text[:200].replace("\n", " ")
         print(f"    响应体预览（前200字符）: {body_preview}")
@@ -339,15 +342,12 @@ def main():
     print("=" * 55)
     print("  OptikLink 自动登录脚本  v3")
     print("=" * 55)
-    print(f"  DISCORD_TOKEN      : {mask(DISCORD_TOKEN)}")
-    print(f"  WXPUSHER_TOKEN     : {mask(WXPUSHER_TOKEN)}")
-    print(f"  WXPUSHER_UID       : {mask(WXPUSHER_UID)}")
-    print(f"  DISCORD_CLIENT_ID  : {mask(DISCORD_CLIENT_ID, 6)}")
-    # 完全隐藏 redirect_uri，不显示任何真实字符
+    print(f"  DISCORD_TOKEN      : ***")
+    print(f"  WXPUSHER_TOKEN     : ***")
+    print(f"  WXPUSHER_UID       : ***")
+    print(f"  DISCORD_CLIENT_ID  : ***")
     print(f"  DISCORD_REDIRECT_URI: ***")
-    # 如果 EXPIRE_DATE 为空，显示“未设置”
-    expire_display = EXPIRE_DATE if EXPIRE_DATE else "未设置"
-    print(f"  EXPIRE_DATE        : {expire_display}")
+    print(f"  EXPIRE_DATE        : ***")
     print("=" * 55)
 
     if USE_CLOUDSCRAPER:
