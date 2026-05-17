@@ -24,10 +24,16 @@ jobs:
       - name: 安装依赖
         run: pip install requests cloudscraper "requests[socks]"
 
-      - name: 下载并启动 Xray 代理
+      - name: 下载并启动 Xray 代理（如果配置了 V2RAY_CONFIG）
+        id: proxy
         env:
           V2RAY_CONFIG: ${{ secrets.V2RAY_CONFIG }}
         run: |
+          if [ -z "$V2RAY_CONFIG" ]; then
+            echo "未配置 V2RAY_CONFIG，跳过代理启动"
+            echo "proxy_url=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           curl -sL https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-64.zip -o xray.zip
           unzip xray.zip && chmod +x xray
           echo "$V2RAY_CONFIG" > config.json
@@ -39,6 +45,7 @@ jobs:
           echo "=== 代理 IP（SOCKS5 10808）==="
           curl -s --max-time 5 --socks5 127.0.0.1:10808 ifconfig.me || echo "获取失败"
           echo ""
+          echo "proxy_url=socks5h://127.0.0.1:10808" >> "$GITHUB_OUTPUT"
 
       - name: 执行自动登录脚本
         id: login
@@ -49,7 +56,7 @@ jobs:
           DISCORD_CLIENT_ID:    ${{ secrets.DISCORD_CLIENT_ID }}
           DISCORD_REDIRECT_URI: ${{ secrets.DISCORD_REDIRECT_URI }}
           EXPIRE_DATE:          ${{ secrets.EXPIRE_DATE }}
-          PROXY_URL:            "socks5h://127.0.0.1:10808"
+          PROXY_URL:            ${{ steps.proxy.outputs.proxy_url }}
         run: python optiklink_login.py
 
       - name: 自动更新 DISCORD_CLIENT_ID Secret
