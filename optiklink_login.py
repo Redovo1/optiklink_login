@@ -26,9 +26,9 @@ except ImportError:
 # ─────────────────────────────────────────────────────────────
 # 配置区（全部从 GitHub Secrets / 环境变量读取，禁止明文硬编码）
 # ─────────────────────────────────────────────────────────────
-DISCORD_TOKEN  = os.environ["DISCORD_TOKEN"]    # Discord Token
-WXPUSHER_TOKEN = os.environ["WXPUSHER_TOKEN"]   # WxPusher appToken
-WXPUSHER_UID   = os.environ["WXPUSHER_UID"]     # WxPusher 接收者 UID
+DISCORD_TOKEN  = os.environ["DISCORD_TOKEN"]            # Discord Token
+WXPUSHER_TOKEN = os.environ.get("WXPUSHER_TOKEN", "")   # WxPusher appToken（可选）
+WXPUSHER_UID   = os.environ.get("WXPUSHER_UID", "")     # WxPusher 接收者 UID（可选）
 
 # 服务到期日：优先从环境变量 EXPIRE_DATE 读取（格式 DD.MM.YYYY），
 # 否则使用下方兜底值（每次续期后更新此处 OR 在 Secrets 中维护）
@@ -66,6 +66,9 @@ def mask(value: str, keep: int = 4) -> str:
 # WxPusher 推送
 # ─────────────────────────────────────────────────────────────
 def wxpusher_send(title: str, content: str):
+    if not WXPUSHER_TOKEN or not WXPUSHER_UID:
+        print(f"[WxPusher] 未配置 WXPUSHER_TOKEN/WXPUSHER_UID，跳过推送 | {title}")
+        return
     import requests
     resp = requests.post(
         "https://wxpusher.zjiecode.com/api/send/message",
