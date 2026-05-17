@@ -134,6 +134,39 @@ def discover_oauth_params(session) -> dict:
     if not found_from_page:
         print("    未从页面找到 OAuth URL，使用配置参数（环境变量/默认值）")
 
+    # 兜底：跟随 /login 的 302 重定向链，从 Location 头里抓 OAuth URL
+    if not found_from_page:
+        print("    [兜底] 跟随 /login 重定向链探测 OAuth URL ...")
+        try:
+            from urllib.parse import urljoin
+            cur_url = "https://optiklink.net/login"
+            for hop in range(10):
+                rr = session.get(cur_url, timeout=15,
+                                 headers=HEADERS_BROWSER, allow_redirects=False)
+                loc = rr.headers.get("Location", "")
+                print(f"      hop#{hop+1} status={rr.status_code} loc={loc[:80]}")
+                if loc:
+                    loc = urljoin(cur_url, loc)
+                else:
+                    if "discord.com" in rr.url:
+                        loc = rr.url
+                    else:
+                        break
+                if "discord.com" in loc and "oauth2" in loc:
+                    qs = parse_qs(urlparse(loc).query)
+                    for key in ("client_id", "redirect_uri", "scope", "state"):
+                        if qs.get(key):
+                            params[key] = qs[key][0]
+                    found_from_page = True
+                    print(f"      ✅ 从重定向链获取 OAuth 参数")
+                    break
+                if rr.status_code in (301, 302, 303, 307, 308):
+                    cur_url = loc
+                    continue
+                break
+        except Exception as e:
+            print(f"    [兜底] 重定向探测失败: {e}")
+
     if params.get("client_id") and params["client_id"] != DISCORD_CLIENT_ID:
         new_cid = params["client_id"]
         print(f"    ⚠️  页面 client_id 已变更！配置值={mask(DISCORD_CLIENT_ID, 6)}  "
